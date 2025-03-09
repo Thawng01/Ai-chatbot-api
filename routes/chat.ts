@@ -46,7 +46,7 @@ async function initializeResources() {
         console.log("Resources initialized successfully.");
     } catch (error) {
         console.error("Error initializing resources:", error);
-        process.exit(1); // Exit if initialization fails
+        process.exit(1);
     }
 }
 
