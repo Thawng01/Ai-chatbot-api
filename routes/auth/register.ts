@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs'
 const router = express.Router()
 
 router.post('/register', async (req: any, res: any) => {
-    const { name, email, password } = req.body;
+    const { name, email, password, isAdmin } = req.body;
 
     if (!name || !email || !password) {
         return res.status(400).json({ error: 'Username, email, and password are required' });
@@ -31,6 +31,7 @@ router.post('/register', async (req: any, res: any) => {
             data: {
                 name,
                 email,
+                isAdmin,
                 password: hashedPassword,
             },
         });
