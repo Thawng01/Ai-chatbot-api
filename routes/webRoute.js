@@ -13,37 +13,38 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
-const extractTextFromWeb_1 = require("../lib/extractTextFromWeb");
+const child_process_1 = require("child_process");
+const path_1 = __importDefault(require("path"));
+// import { startCrawl } from '../lib/extractTextFromWeb'
 const router = express_1.default.Router();
 router.post("/web", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const url = req.body.url;
-    yield (0, extractTextFromWeb_1.startCrawl)(url);
-    res.json();
-    // const childProcessPath = path.resolve(__dirname, "../lib/processWeb.js")
-    // const childProcess = fork(childProcessPath)
-    // childProcess.send(url);
-    // const waitForChildProcess = new Promise((resolve, reject) => {
-    //     childProcess.on("message", (message) => {
-    //         resolve(message);
-    //     });
-    //     // Handle errors
-    //     childProcess.on("error", (error) => {
-    //         console.log("rejected: ", error)
-    //         reject(error);
-    //     });
-    //     childProcess.on("exit", (code) => {
-    //         reject(new Error("Child process exited prematurely"));
-    //     });
-    // });
-    // waitForChildProcess.then((message: any) => {
-    //     console.log("success: ", message)
-    //     if (message.success) {
-    //         res.json({ response: message.message });
-    //     } else {
-    //         res.status(400).json({ error: `Something went wrong. ${message.error}` });
-    //     }
-    // }).catch(error => {
-    //     res.status(500).json({ error: `Something went wrong. ${error}` });
-    // })
+    const childProcessPath = path_1.default.resolve(__dirname, "../lib/processWeb.js");
+    const childProcess = (0, child_process_1.fork)(childProcessPath);
+    childProcess.send(url);
+    const waitForChildProcess = new Promise((resolve, reject) => {
+        childProcess.on("message", (message) => {
+            resolve(message);
+        });
+        // Handle errors
+        childProcess.on("error", (error) => {
+            console.log("rejected: ", error);
+            reject(error);
+        });
+        childProcess.on("exit", (code) => {
+            reject(new Error("Child process exited prematurely"));
+        });
+    });
+    waitForChildProcess.then((message) => {
+        console.log("success: ", message);
+        if (message.success) {
+            res.json({ response: message.message });
+        }
+        else {
+            res.status(400).json({ error: `Something went wrong. ${message.error}` });
+        }
+    }).catch(error => {
+        res.status(500).json({ error: `Something went wrong. ${error}` });
+    });
 }));
 exports.default = router;

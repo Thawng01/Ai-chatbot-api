@@ -17,7 +17,7 @@ const prisma_1 = require("../../lib/prisma");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const router = express_1.default.Router();
 router.post('/register', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { name, email, password } = req.body;
+    const { name, email, password, isAdmin } = req.body;
     if (!name || !email || !password) {
         return res.status(400).json({ error: 'Username, email, and password are required' });
     }
@@ -38,6 +38,7 @@ router.post('/register', (req, res) => __awaiter(void 0, void 0, void 0, functio
             data: {
                 name,
                 email,
+                // isAdmin: true,
                 password: hashedPassword,
             },
         });

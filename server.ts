@@ -5,6 +5,7 @@ import upload from './routes/upload'
 import chat from './routes/chat'
 import user from './routes/auth/register'
 import uploadWeb from './routes/webRoute'
+import getData from './routes/getData'
 
 config();
 const app = express();
@@ -16,6 +17,7 @@ app.use('/auth', user)
 app.use("/", upload)
 app.use("/", uploadWeb)
 app.use('/', chat)
+app.use('/', getData)
 
 
 const port = process.env.PORT || 5000;

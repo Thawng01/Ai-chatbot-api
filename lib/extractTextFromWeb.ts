@@ -1,64 +1,111 @@
-import { CheerioWebBaseLoader } from "@langchain/community/document_loaders/web/cheerio";
+// import { CheerioWebBaseLoader } from "@langchain/community/document_loaders/web/cheerio";
+// // Function to extract text from a single page
+// export const extractTextFromWeb = async (url: string) => {
+//     const pTagSelector = "body";
+//     const cheerioLoader = new CheerioWebBaseLoader(url, {
+//         selector: pTagSelector,
+//     });
 
-import { CheerioCrawler, Dataset } from 'crawlee';
-// Function to extract text from a single page
-export const extractTextFromWeb = async (url: string) => {
-    const pTagSelector = "h1, h2, h4, h5, h6, p, span, li";
-    const cheerioLoader = new CheerioWebBaseLoader(url, {
-        selector: pTagSelector,
-    });
+//     const docs = await cheerioLoader.load();
+//     return docs;
+// };
 
-    const docs = await cheerioLoader.load();
-    return docs;
-};
+import puppeteer from "puppeteer";
 
+const initialUrl = 'https://aridient.com/';
+export async function webScraper() {
+    try {
+        const browser = await puppeteer.launch({});
+        const page = await browser.newPage();
+        const visitedUrls = new Set(); // Track visited URLs to avoid duplicates
 
+        // Get the domain of the initial URL
+        const targetDomain = getDomain(initialUrl);
 
-export const startCrawl = async (url: string) => {
+        if (!targetDomain) {
+            console.error('Invalid initial URL');
+            await browser.close();
+            return;
+        }
 
+        // Function to extract text from a single page
+        const extractTextFromPage = async (url: string) => {
+            if (visitedUrls.has(url)) return; // Skip if already visited
+            visitedUrls.add(url); // Mark URL as visited
 
+            console.log(`Processing: ${url}`);
+            await page.goto(url, { waitUntil: 'networkidle2' });
+            await page.setViewport({ width: 1080, height: 1024 });
 
-    // CheerioCrawler crawls the web using HTTP requests
-    // and parses HTML using the Cheerio library.
-    const crawler = new CheerioCrawler({
-        // Use the requestHandler to process each of the crawled pages.
-        async requestHandler({ request, $, enqueueLinks, log }) {
-            const title = $('title').text();
-            log.info(`Title of ${request.loadedUrl} is '${title}'`);
+            const text = await page.evaluate(() => {
+                const extractText = (element: any) => {
+                    let result = '';
 
-            // Function to extract all text content from the page
-            const extractAllText = () => {
-                let allText = '';
-
-                // Traverse the DOM and collect text from all elements
-                $('*').each((index, element) => {
-                    const text = $(element).text().trim();
-                    if (text) {
-                        allText += text + '\n';
+                    if (element.tagName === 'nav' || element.tagName === 'ul' || element.tagName === 'li' || element.tagName === 'a') {
+                        if (element.textContent && element.textContent.trim() !== '') {
+                            result += element.textContent.trim() + ' ';
+                        }
                     }
-                });
+                    // Handle headings and paragraphs (e.g., <h1>, <p>)
+                    else if (element.tagName === 'h1' || element.tagName === 'h2' || element.tagName === 'p') {
+                        if (element.textContent && element.textContent.trim() !== '') {
+                            result += '\n' + element.textContent.trim() + '\n'; // Add newlines around headings/paragraphs
+                        }
+                    }
+                    // Handle other elements
+                    else {
+                        if (element.textContent && element.textContent.trim() !== '') {
+                            result += element.textContent.trim() + ' '; // Add space after other elements
+                        }
+                    }
 
-                return allText.trim(); // Remove any leading/trailing whitespace
-            };
+                    // // Recursively process child elements
+                    // for (const child of element.children) {
+                    //     result += extractText(child);
+                    // }
 
-            // Extract all text content from the page
-            const pageText = extractAllText();
+                    return result;
+                };
 
-            // Save results as JSON to ./storage/datasets/default
-            await Dataset.pushData({
-                title,
-                url: request.loadedUrl,
-                text: pageText,
+                // Start extraction from the body
+                return extractText(document.body);
             });
 
-            // Extract links from the current page and add them to the crawling queue.
-            await enqueueLinks();
-        },
+            // Clean up the text (replace multiple spaces/newlines with single ones)
+            const cleanedText = text.replace(/\s+/g, ' ').replace(/\n+/g, '\n').trim();
+            console.log(`Extracted Text from ${url}:\n`, cleanedText);
 
-        // Let's limit our crawls to make our tests shorter and safer.
-        maxRequestsPerCrawl: 50,
-    });
+            // Extract all links on the page
+            const links = await page.evaluate(() => {
+                const anchors = Array.from(document.querySelectorAll('a'));
+                return anchors.map((a) => a.href).filter((href) => href && !href.startsWith('javascript:'));
+            });
 
-    // Add first URL to the queue and start the crawl.
-    await crawler.run([url]);
+            // Visit each linked page recursively (only if it belongs to the same domain)
+            for (const link of links) {
+                const linkDomain = getDomain(link);
+                if (linkDomain === targetDomain) {
+                    await extractTextFromPage(link);
+                } else {
+                    console.log(`Skipping external link: ${link}`);
+                }
+            }
+        };
+
+        // Start crawling from the initial URL
+        await extractTextFromPage(initialUrl);
+        await browser.close();
+    } catch (error) {
+        console.log("Error:", error);
+    }
 }
+
+const getDomain = (url: string) => {
+    try {
+        const parsedUrl = new URL(url);
+        return parsedUrl.hostname; // Extract the hostname (e.g., "aridient.com")
+    } catch (error) {
+        console.error(`Invalid URL: ${url}`);
+        return null;
+    }
+};

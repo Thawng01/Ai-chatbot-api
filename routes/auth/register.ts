@@ -31,7 +31,7 @@ router.post('/register', async (req: any, res: any) => {
             data: {
                 name,
                 email,
-                isAdmin,
+                // isAdmin: true,
                 password: hashedPassword,
             },
         });
